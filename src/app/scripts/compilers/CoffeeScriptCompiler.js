@@ -4,8 +4,9 @@
 
 'use strict';
 
-var fs          = require('fs'),
+var fs          = require('fs-extra'),
     path        = require('path'),
+    util        = require('../util.js'),
     FileManager = global.getFileManager(),
     Compiler    = require(FileManager.appScriptsDir + '/Compiler.js');
 
@@ -46,7 +47,7 @@ CoffeeScriptCompiler.prototype.compileWithLib = function (file, emitter) {
         filePath = file.src,
         output = file.output,
         options = file.settings,
-        javascript;
+        javascript, sourceMapObject;
     
     var triggerError = function (message) {
         emitter.emit('fail');
@@ -61,10 +62,28 @@ CoffeeScriptCompiler.prototype.compileWithLib = function (file, emitter) {
         }
 
         try {
-            javascript = coffee.compile(code, {
-                bare: options.bare,
-                literate: options.literate
-            });
+            // javascript = coffee.compile(code, {
+            //     bare: options.bare,
+            //     literate: options.literate
+            // });
+
+            var task = {
+                input: code,
+                options: {
+                    bare: options.bare,
+                    literate: options.literate,
+                    sourceMap: !!options.sourceMap
+                }
+            };
+
+            var compiled = coffee.compile(task.input, task.options);
+            
+            javascript = compiled;
+
+            if (task.options.sourceMap) {
+                javascript = compiled.js + '\n//# sourceMappingURL=' + path.basename(output, '.js') + '.map';
+                sourceMapObject = compiled.v3SourceMap;
+            }
         } catch (e) {
             triggerError(e.message);
             return false;
@@ -79,6 +98,23 @@ CoffeeScriptCompiler.prototype.compileWithLib = function (file, emitter) {
                 emitter.emit('always');
             }
         });
+
+        // write sourcemap
+        if (options.sourceMap) {
+            var map, sourceRoot;
+            try {
+                map = JSON.parse(sourceMapObject);
+                
+                map.file = path.basename(output);
+                
+                sourceRoot = path.dirname(filePath);
+                map.sources = [path.relative(sourceRoot, filePath)];
+                map.sourceRoot = path.relative(path.dirname(output), sourceRoot);
+
+                var mapOutput = path.join(path.dirname(output), path.basename(output, '.js') + '.map');
+                fs.writeFileSync(mapOutput, JSON.stringify(map, null, '\t'));
+            } catch (e) {}
+        }
     });
 };
 
@@ -92,9 +128,20 @@ CoffeeScriptCompiler.prototype.compileWithCommand = function (file, emitter) {
         filePath = file.src,
         output   = file.output,
         options  = file.settings,
+        pcfg     = this.getProjectById(file.pid).config, //get project config
         argv     = [];
 
+    //custom options
+    var customOptions = pcfg.customOptions;
+    if (Array.isArray(customOptions)) {
+        argv = argv.concat(customOptions);
+    }
+
     argv.push('--compile');
+
+    if (options.sourceMap) {
+        argv.push('--map');
+    }
 
     if (options.bare) {
         argv.push('--bare');
@@ -104,7 +151,8 @@ CoffeeScriptCompiler.prototype.compileWithCommand = function (file, emitter) {
         argv.push('--literate');
     }
 
-    argv.push('"' + filePath.replace(/\\/g, '/') + '"');
+    //argv.push('"' + filePath.replace(/\\/g, '/') + '"');
+    argv.push(path.basename(filePath));
 
     var triggerError = function (message) {
         emitter.emit('fail');
@@ -123,8 +171,20 @@ CoffeeScriptCompiler.prototype.compileWithCommand = function (file, emitter) {
     if (coffeePath.match(/ /)) {
         coffeePath = '"'+ coffeePath +'"';
     }
+
+    var execOpts = {
+        timeout: 5000,
+        cwd: path.dirname(filePath)
+    };
     
-    exec([coffeePath].concat(argv).join(' '), {timeout: 5000}, function (error, stdout, stderr) {
+    // fix #129 env: node: No such file or directory
+    if (process.platform === 'darwin') {
+        execOpts.env = {
+            PATH: "/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin/"
+        }
+    }
+    
+    exec([coffeePath].concat(argv).join(' '), execOpts, function (error, stdout, stderr) {
         if (error !== null) {
             triggerError(stderr);
         } else {
@@ -152,5 +212,22 @@ CoffeeScriptCompiler.prototype.compileWithCommand = function (file, emitter) {
                 triggerSuccess();
             }
         });
+
+        // source map
+        if (options.sourceMap) {
+            var sourceMap = path.basename(filePath, '.coffee') + '.map',
+                sourceMapFullPathOfSrc = path.join(path.dirname(filePath), sourceMap),
+                sourceMapFullPathDest = path.join(path.dirname(output), sourceMap);
+
+            fs.rename(sourceMapFullPathOfSrc, sourceMapFullPathDest, function () {
+                var sourceMapObj = util.readJsonSync(sourceMapFullPathDest);
+            
+                if (typeof(sourceMapObj) === 'object' && sourceMapObj.hasOwnProperty('sourceRoot')) {
+                    sourceMapObj.sourceRoot = path.relative(path.dirname(sourceMapFullPathDest), path.dirname(sourceMapFullPathOfSrc));
+                }
+
+                fs.outputFile(sourceMapFullPathDest, JSON.stringify(sourceMapObj, null, '\t')); 
+            });
+        }
     }
 };

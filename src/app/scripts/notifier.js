@@ -17,17 +17,31 @@ var path        = require('path'),
  * @param  {String} filePath file path
  */
 exports.throwError = function (message, filePath) {
+    var fullMessage = message;
     if (filePath) {
-        message = filePath + '\n' +message;
+        fullMessage = filePath + '\n' +message;
     }
 
-    showNotification(message);
+    showNotification(fullMessage, 'error');
 
     //add log
     addErrorLog({
         file: filePath || "Error",
         message: message
     });
+};
+
+/**
+ * throw completed
+ * @param  {String} message  completed message
+ * @param  {String} filePath file path
+ */
+exports.throwCompleted = function (message, filePath) {
+    if (filePath) {
+        message = filePath;
+    }
+
+    showNotification(message, 'success');
 };
 
 /**
@@ -45,7 +59,7 @@ exports.showNotification = showNotification;
 
 
 var notificationWindow;
-function showNotification(message) {
+function showNotification(message, type) {
     //close opend notifier window
     if (notificationWindow) {
         try {
@@ -53,7 +67,13 @@ function showNotification(message) {
         } catch (e) {}
     }
 
-    var popWin = createNotifierWindow();
+    var options = {};
+
+    if (type === 'success') {
+        options.height = 108;
+    }
+
+    var popWin = createNotifierWindow(options, type);
 
     // show in active (windows only)
     if (popWin.showInactive) {
@@ -62,7 +82,10 @@ function showNotification(message) {
 
     popWin.on('loaded', function () {
         // set message
+        $('.dragbar', popWin.window.document).text(type);
+
         $('#msg', popWin.window.document).html(message);
+
 
         if (!popWin.showInactive) {
             popWin.show();
@@ -75,9 +98,10 @@ function showNotification(message) {
 /**
  * create notifier window
  * @param  {Object} options window options
+ * @param  {string} status type
  * @return {Object}         new window
  */
-function createNotifierWindow(options) {
+function createNotifierWindow(options, type) {
     var defaultOption = {
             width: 400,
             height: 150,
@@ -105,5 +129,5 @@ function createNotifierWindow(options) {
     options.x = positionX - 10;
     options.y = positionY;
 
-    return gui.Window.open('file://' + path.join(FileManager.appViewsDir, 'release/notifier.html'), options);
+    return gui.Window.open('file://' + path.join(FileManager.appViewsDir, 'release/notifier-' +  type + '.html'), options);
 }

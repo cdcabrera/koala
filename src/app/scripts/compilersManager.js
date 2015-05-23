@@ -13,6 +13,7 @@ var fs          = require('fs-extra'),
     Compiler    = require('./Compiler.js'),
     FileManager = require('./FileManager.js'),
     fileTypesManager = require('./fileTypesManager.js'),
+    notifier    = require('./notifier.js'),
     $           = jQuery;
 
 exports.builtInCompilers = [];
@@ -247,16 +248,23 @@ exports.addCompiler = function (data, configPath) {
     }
 
     if (!data.main) {
+        // add built-in compiler
         exports.compilers[data.name] = new Compiler(data);
     } else {
-        var CompilerClass = require(path.resolve(configPath, data.main));
-        
-        if (typeof CompilerClass !== 'function') {
-            global.debug('It\'s not a correct module: ' + path.resolve(configPath, data.main));
-            return false;
-        }
+        // add compiler expansion
+        try {
+            var CompilerClass = require(path.resolve(configPath, data.main));
+            
+            if (typeof CompilerClass !== 'function') {
+                global.debug('It\'s not a correct module: ' + path.resolve(configPath, data.main));
+                return false;
+            }
 
-        exports.compilers[data.name] = new CompilerClass(data);
+            exports.compilers[data.name] = new CompilerClass(data);
+        } catch (e) {
+            global.debug(e);
+            $.koalaui.alert('Compiler ' + data.display + ' Error: <br>' + e.message);
+        }
     }
 
     fileTypesManager.addFileType(fileTypes);
@@ -392,12 +400,25 @@ exports.getGlobalSettings = function (compilerName) {
  * Compile File
  * @param  {object} file    file object
  * @param  {object} emitter compile event emitter
+ * @param  {object} options compile options
  */
-exports.compileFile = function (file, emitter) {
-	if (!fs.existsSync(path.dirname(file.output))) {
+exports.compileFile = function (file, emitter, options) {
+    if (!fs.existsSync(path.dirname(file.output))) {
 		fs.mkdirpSync(path.dirname(file.output));
 	}
 	if (!emitter) emitter = new EventProxy();
+
+    // callback on compile done
+    emitter.on('done', function () {
+        var appConfig = configManager.getAppConfig();
+
+        // not notify when manually compile 
+        if (!appConfig.notifyOnCompleted || (options && options.manually)) {
+            return false
+        }
+
+        notifier.throwCompleted('Success.', file.src);    
+    });
 	
 	exports.getCompilerByName(file.compiler).compile(file, emitter);
 };

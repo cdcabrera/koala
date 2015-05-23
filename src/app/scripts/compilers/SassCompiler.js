@@ -101,7 +101,7 @@ SassCompiler.prototype.sassCompile = function (file, emitter) {
     var customOptions = pcfg.customOptions;
     if (Array.isArray(customOptions)) {
         customOptions = customOptions.filter(function (item) {
-            return /--style|--line-comments|--debug-info|--unix-newlines/.test(item) === false;
+            return /--style|--line-comments|--debug-info|--unix-newlines|--sourcemap/.test(item) === false;
         });
         argv = argv.concat(customOptions);
     }
@@ -136,6 +136,11 @@ SassCompiler.prototype.sassCompile = function (file, emitter) {
         argv.push('--unix-newlines');
     }
 
+    // default sourceMap is true
+    if (settings.sourceMap === false) {
+        argv.push('--sourcemap=none');
+    }
+
     // reset the sass cache location, because the default location is the app root dir.
     argv.push('--cache-location "' + path.join(FileManager.userCacheDir, '.sass-cache') + '"');
 
@@ -148,9 +153,14 @@ SassCompiler.prototype.sassCompile = function (file, emitter) {
             self.throwError(stderr, filePath);
         } else {
             emitter.emit('done');
-            //add watch import file
-            var imports = common.getStyleImports('sass', filePath);
-            self.watchImports(imports, filePath);
+
+            //watch import file
+            common.watchImports('sass', filePath);
+
+            // auto add css prefix
+            if (settings.autoprefix) {
+                common.autoprefix(file);
+            }
         }
             
         // do awayls
@@ -209,6 +219,10 @@ SassCompiler.prototype.compassCompile = function (file, emitter) {
     if (settings.debugInfo) {
         argv.push('--debug-info');
     }
+
+    // if (settings.sourceMap) {
+    //     argv.push('--sourcemap');
+    // }
     
     var command = self.getCompassCmd(projectConfig.useSystemCommand) + ' ' + argv.join(' ');
 
@@ -218,9 +232,14 @@ SassCompiler.prototype.compassCompile = function (file, emitter) {
             self.throwError(stdout || stderr, filePath);
         } else {
             emitter.emit('done');
-            //add watch import file
-            var imports = common.getStyleImports('sass', filePath);
-            self.watchImports(imports, filePath);
+
+            // watch import file
+            common.watchImports('sass', filePath);
+
+            // auto add css prefix
+            if (settings.autoprefix) {
+                common.autoprefix(file);
+            }
         }
 
         // do awayls

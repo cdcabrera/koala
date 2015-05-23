@@ -25,32 +25,40 @@ module.exports = CssCompiler;
  * @param  {Object} emitter  compile event emitter
  */
 CssCompiler.prototype.compile = function(file, emitter) {
-    var cleanCSS = require('clean-css');
-    var rootPath = file.src.substring(0, file.src.indexOf(file.name));
-    var source = fs.readFileSync(file.src, 'utf-8');
-    var iskeepbreaks = file.settings.outputStyle != "yuicompress" || false;
-    var minimized, _this = this;
+    var CleanCSS  = require('clean-css'),
+        rootPath  = file.src.substring(0, file.src.indexOf(file.name)),
+        sourceCss = fs.readFileSync(file.src, 'utf-8'),
+        resultCss,
+        _this = this;
 
     var options = {
         removeEmpty: true,
-        keepBreaks: iskeepbreaks,
-        relativeTo: rootPath
+        keepBreaks: file.settings.outputStyle != "yuicompress" || false,
+        relativeTo: rootPath,
+        processImport: false,
+        visited: []
     };
-    if (!file.settings.combineImport) { 
-        options.processImport = false;
+
+    if (file.settings.combineImport) { 
+        options.processImport = true;
     }
 
-    minimized = cleanCSS.process(source, options);
+    resultCss = new CleanCSS(options).minify(sourceCss);
+    // global.debug(options.visited)
+
+    if (file.settings.autoprefix) {
+        resultCss = require('autoprefixer').process(resultCss).css;
+    }
 
     // convert background image to base64 & append timestamp
-    var result = convertImageUrl(minimized, rootPath, file.settings.appendTimestamp);
+    resultCss = convertImageUrl(resultCss, rootPath, file.settings.appendTimestamp);
 
-    fs.outputFile(file.output, result, function(err) {
+    fs.outputFile(file.output, resultCss, function(err) {
         if (err) {
             emitter.emit('fail');
         } else {
-            if (file.settings.combineImport) {
-                _this.watchImports(options.imports, file.src);
+            if (file.settings.combineImport && options.visited.length) {
+                _this.watchImports(options.visited, file.src);
             }
             emitter.emit('done');
         }
@@ -72,7 +80,14 @@ function convertImageUrl (css, rootPath, timestamp) {
         var str = matchStr,
             originalUrl = str.match(/url.?\((.+)\)/)[0];    // get original url
 
-        str = str.replace(/\'|\"/g, '').match(/url.?\((.+)\)/)[1].trim();
+        var str = str.replace(/\'|\"/g, '').match(/url.?\((.+)\)/);
+
+        // match result is null
+        if (!str || !str[1]) {
+            return matchStr;
+        }
+
+        str = str[1].trim();
         var url = str.split('?')[0],
         param = str.split('?')[1];
 

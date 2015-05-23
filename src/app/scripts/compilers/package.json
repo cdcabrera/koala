@@ -56,6 +56,12 @@
 				"default": false
 			},
 			{
+				"type": "checkbox",
+				"name": "autoprefix",
+				"display": "Autoprefix",
+				"default": false
+			},
+			{
 				"type": "droplist",
 				"name": "outputStyle",
 				"display": "Output Style",
@@ -94,7 +100,7 @@
 		// project settings file path
 		"projectSettings": "../../settings/koala-config-of-less.json",
 
-		"libraries": ["LESS@1.6.1"]
+		"libraries": ["LESS@1.7.0"]
 	},
 
 	// Sass Compiler
@@ -103,7 +109,7 @@
 
 		"display": "Sass",
 
-		"version": "1.0.0",
+		"version": "1.0.1",
 
 		"koalaVersion": ">=2.0.0",
 
@@ -133,6 +139,12 @@
 			},
 			{
 				"type": "checkbox",
+				"name": "sourceMap",
+				"display": "Source Map",
+				"default": true
+			},
+			{
+				"type": "checkbox",
 				"name": "lineComments",
 				"display": "Line Comments",
 				"default": false
@@ -147,6 +159,12 @@
 				"type": "checkbox",
 				"name": "unixNewlines",
 				"display": "Unix New Lines",
+				"default": false
+			},
+			{
+				"type": "checkbox",
+				"name": "autoprefix",
+				"display": "Autoprefix",
 				"default": false
 			},
 			{
@@ -195,7 +213,7 @@
 
 		"projectSettings": "../../settings/koala-config-of-sass.json",
 
-		"libraries": ["Sass@3.2.9"]
+		"libraries": ["Sass@3.4.9"]
 	},
 
 	// compass test
@@ -235,7 +253,7 @@
 			}
 		],
 
-		"libraries": ["Compass@0.12.2"]
+		"libraries": ["Compass@1.0.1"]
 	},
 
 	// CoffeeScript Compiler
@@ -258,6 +276,12 @@
 		}],
 
 		"options": [
+			{
+				"type": "checkbox",
+				"name": "sourceMap",
+				"display": "Source Map",
+				"default": false
+			},
 			{
 				"type": "checkbox",
 				"name": "bare",
@@ -292,7 +316,7 @@
 
 		"projectSettings": "../../settings/koala-config-of-coffee.json",
 
-		"libraries": ["CoffeeScript@1.6.3"]
+		"libraries": ["CoffeeScript@1.7.1"]
 	},
 	{
 		"name": "uglifyjs",
@@ -326,10 +350,16 @@
 				"name": "compress",
 				"display": "Compress",
 				"default": true
-			}
+			},
+            {
+                "type": "checkbox",
+                "name": "comments",
+                "display": "Preserve copyright comments",
+                "default": false
+            }
 		],
 
-		"libraries": ["uglify-js@2.3.6"]
+		"libraries": ["uglify-js@2.4.15"]
 	},
 
 
@@ -371,7 +401,13 @@
 			{
 				"type": "checkbox",
 				"name": "appendTimestamp",
-				"display": "Append Timestamp",
+				"display": "Timestamp",
+				"default": false
+			},
+			{
+				"type": "checkbox",
+				"name": "autoprefix",
+				"display": "Autoprefix",
 				"default": false
 			},
 			{

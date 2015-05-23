@@ -3,7 +3,8 @@
  */
 
 var fs = require('fs'),
-    path = require('path');
+    path = require('path'),
+    fileWatcher = require('../fileWatcher.js');
 
 /**
  * get LESS/Sass @import files
@@ -11,7 +12,7 @@ var fs = require('fs'),
  * @param  {String} srcFile
  * @return {Object}
  */
-exports.getStyleImports = function (lang, srcFile) {
+function getOrWatchStyleImports (lang, srcFile, deepWatch, deepLevel) {
     //match imports from code
     var result = [],
         code = fs.readFileSync(srcFile, 'utf8');
@@ -56,5 +57,42 @@ exports.getStyleImports = function (lang, srcFile) {
         if (fs.existsSync(file)) fullPathImports.push(file);
     });
 
+    if (deepWatch && deepLevel <= 5) {
+
+        fileWatcher.addImports(fullPathImports, srcFile);
+
+        deepLevel ++;
+
+        fullPathImports.forEach(function (item) {
+            exports.getStyleImports(lang, item, deepWatch, deepLevel);
+        });
+        return false;
+    }
+
     return fullPathImports;
+}
+
+exports.getStyleImports = getOrWatchStyleImports;
+
+exports.watchImports = function (lang, srcFile) {
+    getOrWatchStyleImports(lang, srcFile, true, 1);
+};
+
+
+/**
+ * auto add vendor prefixes
+ * @param  {object} file object
+ */
+exports.autoprefix = function (file) {
+    var cssFile = file.output,
+        css = fs.readFileSync(cssFile),
+        autoprefixer = require('autoprefixer');
+
+    css = autoprefixer.process(css).css;
+
+    if (file.settings.sourceMap) {
+        css = css + '\n/*# sourceMappingURL=' + path.basename(cssFile) + '.map */'
+    }
+
+    fs.writeFileSync(cssFile, css);
 }
